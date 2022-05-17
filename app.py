@@ -16,6 +16,7 @@ def main():
         print("Started {} test runs.".format(len(test_runs)))
 
         results = {}
+        failed = {}
         while len(list(results.keys())) < len(test_runs):
             time.sleep(1)
 
@@ -25,9 +26,37 @@ def main():
                     result = _get_result(run)
                     if result.get("result") in ["pass", "fail"]:
                         results[test_run_id] = result
+                    if result.get("result") in ["fail"]:
+                        failed[test_run_id] = result
 
         pass_count = sum([r.get("result") == "pass" for r in list(results.values())])
         fail_count = sum([r.get("result") == "fail" for r in list(results.values())])
+
+        if fail_count > 0:
+            print("{} test runs passed. {} test runs failed.".format(pass_count, fail_count))
+            fail_count = 0
+            test_runs = []
+            for run in failed:
+                trigger_url = _get_trigger_url(run)
+                trigger_json = trigger_resp.json().get("data", {})
+                test_runs.append(trigger_json.get("runs", []))
+
+            results = {}
+            failed = {}
+            while len(list(results.keys())) < len(test_runs):
+                time.sleep(1)
+
+                for run in test_runs:
+                    test_run_id = run.get("test_run_id")
+                    if not test_run_id in results:
+                        result = _get_result(run)
+                        if result.get("result") in ["pass", "fail"]:
+                            results[test_run_id] = result
+                        if result.get("result") in ["fail"]:
+                            failed[test_run_id] = result
+
+            pass_count = sum([r.get("result") == "pass" for r in list(results.values())])
+            fail_count = sum([r.get("result") == "fail" for r in list(results.values())])
 
         if fail_count > 0:
             print("{} test runs passed. {} test runs failed.".format(pass_count, fail_count))
@@ -61,6 +90,33 @@ def _get_result(test_run):
 
     if result_resp.ok:
         return result_resp.json().get("data")
+
+    return None
+
+def _get_trigger_url(test_run):
+    # generate Personal Access Token at https://www.runscope.com/applications
+    if not "RUNSCOPE_ACCESS_TOKEN" in os.environ:
+        print("Please set the environment variable RUNSCOPE_ACCESS_TOKEN. You can get an access token by going to https://www.runscope.com/applications")
+        exit(1)
+
+    API_TOKEN = os.environ["RUNSCOPE_ACCESS_TOKEN"]
+
+    opts = {
+        "base_url": "https://api.runscope.com",
+        "bucket_key": test_run.get("bucket_key"),
+        "test_id": test_run.get("test_id")
+    }
+    result_url = "{base_url}/buckets/{bucket_key}/tests/{test_id}".format(**opts)
+    print("Getting trigger: {}".format(result_url))
+
+    headers = {
+        "Authorization": "Bearer {}".format(API_TOKEN),
+        "User-Agent": "python-trigger-sample"
+    }
+    result_resp = requests.get(result_url, headers=headers)
+
+    if result_resp.ok:
+        return result_resp.json().get("data").get('trigger_url')
 
     return None
 
