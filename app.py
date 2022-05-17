@@ -44,7 +44,6 @@ def main():
                 trigger_json = trigger_resp.json().get("data", {})
                 test_runs.append(trigger_json.get("runs", [])[0])
 
-            print(test_runs)
             results = {}
             while len(list(results.keys())) < len(test_runs):
                 time.sleep(1)
