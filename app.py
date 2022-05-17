@@ -6,6 +6,7 @@ import os
 
 def main():
     trigger_url = sys.argv[1]
+    custom_variables = trigger_url.split('?')[1]
     trigger_resp = requests.get(trigger_url)
 
     if trigger_resp.ok:
@@ -16,7 +17,7 @@ def main():
         print("Started {} test runs.".format(len(test_runs)))
 
         results = {}
-        failed = {}
+        failed = []
         while len(list(results.keys())) < len(test_runs):
             time.sleep(1)
 
@@ -27,7 +28,7 @@ def main():
                     if result.get("result") in ["pass", "fail"]:
                         results[test_run_id] = result
                     if result.get("result") in ["fail"]:
-                        failed[test_run_id] = run
+                        failed.append(run)
 
         pass_count = sum([r.get("result") == "pass" for r in list(results.values())])
         fail_count = sum([r.get("result") == "fail" for r in list(results.values())])
@@ -37,12 +38,14 @@ def main():
             fail_count = 0
             test_runs = []
             for run in failed:
-                trigger_url = _get_trigger_url(run)
+                trigger_url = _get_trigger_url(run) + '?' + custom_variables
+                print("Calling trigger: {}".format(trigger_url))
+                trigger_resp = requests.get(trigger_url)
                 trigger_json = trigger_resp.json().get("data", {})
-                test_runs.append(trigger_json.get("runs", []))
+                test_runs.append(trigger_json.get("runs", [])[0])
 
+            print(test_runs)
             results = {}
-            failed = {}
             while len(list(results.keys())) < len(test_runs):
                 time.sleep(1)
 
@@ -52,8 +55,6 @@ def main():
                         result = _get_result(run)
                         if result.get("result") in ["pass", "fail"]:
                             results[test_run_id] = result
-                        if result.get("result") in ["fail"]:
-                            failed[test_run_id] = result
 
             pass_count = sum([r.get("result") == "pass" for r in list(results.values())])
             fail_count = sum([r.get("result") == "fail" for r in list(results.values())])
