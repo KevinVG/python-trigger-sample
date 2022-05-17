@@ -27,7 +27,7 @@ def main():
                     if result.get("result") in ["pass", "fail"]:
                         results[test_run_id] = result
                     if result.get("result") in ["fail"]:
-                        failed[test_run_id] = result
+                        failed[test_run_id] = run
 
         pass_count = sum([r.get("result") == "pass" for r in list(results.values())])
         fail_count = sum([r.get("result") == "fail" for r in list(results.values())])
